@@ -31,8 +31,15 @@ other than Copilot. Semantic review by an agent is advisory, not a guarantee.
 Requires GitHub Copilot CLI. The helper scripts need Node.js 22+ and Git; they
 use only Node built-ins, so there is nothing to `npm install`.
 
+In the GitHub Copilot app, open **Customize > Plugins**, open the marketplace
+settings next to the marketplace filter, and add
+`https://github.com/michalmar/repository-docs`. Select `repository-docs` from
+the `repository-docs-marketplace` marketplace and install it.
+
+To install directly with Copilot CLI:
+
 ```powershell
-copilot plugin install msucharda/repository-docs
+copilot plugin install michalmar/repository-docs
 copilot plugin list
 ```
 

@@ -1,0 +1,28 @@
+{
+  "name": "repository-docs-marketplace",
+  "owner": {
+    "name": "Repository Docs maintainers"
+  },
+  "metadata": {
+    "description": "Evidence-based repository documentation plugins.",
+    "version": "0.6.0"
+  },
+  "plugins": [
+    {
+      "name": "repository-docs",
+      "description": "Source-traced discovery, documentation bootstrap and updates, cross-project reuse documentation, guided local reuse setup and an organization reuse index, resumable recovery, and independent advisory review.",
+      "version": "0.6.0",
+      "source": ".",
+      "repository": "https://github.com/michalmar/repository-docs",
+      "license": "MIT",
+      "keywords": [
+        "documentation",
+        "discovery",
+        "contracts",
+        "reuse",
+        "recovery",
+        "review"
+      ]
+    }
+  ]
+}

@@ -112,6 +112,24 @@ export function validatePackage(root = packageRoot) {
   assert.equal(manifest.name, 'repository-docs');
   assert.equal(manifest.version, '0.6.0');
   assert.equal(manifest.license, 'MIT', 'The package is MIT licensed');
+  const marketplace = JSON.parse(readFileSync(join(root, '.github', 'plugin', 'marketplace.json'), 'utf8'));
+  assert.deepEqual(marketplace, {
+    name: 'repository-docs-marketplace',
+    owner: { name: 'Repository Docs maintainers' },
+    metadata: {
+      description: 'Evidence-based repository documentation plugins.',
+      version: manifest.version,
+    },
+    plugins: [{
+      name: manifest.name,
+      description: manifest.description,
+      version: manifest.version,
+      source: '.',
+      repository: manifest.repository,
+      license: manifest.license,
+      keywords: manifest.keywords,
+    }],
+  });
   assert.deepEqual(readdirSync(join(root, 'skills')).sort(),
     ['docs-bootstrap', 'docs-update', 'reuse-index', 'reuse-setup']);
   assert.deepEqual(readdirSync(join(root, 'com.github.copilot', 'agents')).sort(),
@@ -129,6 +147,7 @@ export function validatePackage(root = packageRoot) {
     validateProcedure(readFileSync(join(root, procedure), 'utf8'), name, index === 2 || index === 3);
   }
   for (const path of [
+    '.github/plugin/marketplace.json',
     'references/documentation-policy.md', 'templates/interface-contract.md',
     'templates/project-policy.md', 'LICENSE', 'THIRD-PARTY-NOTICES.md',
     'references/repository-discovery.md', 'references/documentation-unit.md',
