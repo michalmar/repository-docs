@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "repository": "<owner/repository>",
+  "units": [
+    {
+      "id": "<owner/repository>:<unit>",
+      "type": "library",
+      "status": "supported",
+      "package": "<package name, or null for an unpublished integration>",
+      "version": "<released version or version constraint>",
+      "owner": "<owner or unknown>",
+      "page": "docs/reuse/<unit>.md",
+      "summary": "<one line: the task this unit solves, used verbatim by the organization index>",
+      "keywords": ["<task word a consumer would search for>"],
+      "area": "<optional area id; remove this field when the repository default applies>"
+    }
+  ]
+}

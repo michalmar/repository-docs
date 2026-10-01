@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "head": "0000000000000000000000000000000000000000",
+  "scope": "ILLUSTRATION ONLY: replace the placeholder HEAD, paths, ranges, and assertions with the selected command's source-backed reader question.",
+  "audiences": ["maintainer", "interface-consumer"],
+  "evidence": [
+    {"id": "command-source", "path": "src/command.mjs", "startLine": 1, "endLine": 6, "kind": "source"},
+    {"id": "executor-source", "path": "src/execute.mjs", "startLine": 1, "endLine": 5, "kind": "source"},
+    {"id": "command-config", "path": "config/command.json", "startLine": 1, "endLine": 1, "kind": "config"},
+    {"id": "command-tests", "path": "tests/command.test.mjs", "startLine": 1, "endLine": 4, "kind": "test"},
+    {"id": "command-contract", "path": "docs/command-contract.md", "startLine": 1, "endLine": 4, "kind": "contract"}
+  ],
+  "views": [
+    {
+      "id": "product-runtime",
+      "status": "supported",
+      "evidenceIds": ["command-source", "executor-source"],
+      "detail": "Illustration: a local command delegates one request to an executor. Replace with observed responsibilities and runtime boundaries."
+    },
+    {
+      "id": "interfaces-consumers",
+      "status": "supported",
+      "evidenceIds": ["command-source", "command-contract"],
+      "detail": "Illustration: the command consumes the executor's returned value. Replace with concrete callers, outputs, and canonical authority."
+    },
+    {
+      "id": "state-effects",
+      "status": "supported",
+      "evidenceIds": ["command-source", "executor-source"],
+      "detail": "Illustration: the executor computes a result and the command prints it. Replace with observed writes and external boundaries."
+    },
+    {
+      "id": "operation-dependencies",
+      "status": "supported",
+      "evidenceIds": ["command-config", "command-tests"],
+      "detail": "Illustration: configuration selects a local mode and declared tests exercise it. Replace with inspected dependencies and visibility limits."
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "command-entry",
+      "kind": "entry",
+      "summary": "Illustrative command input boundary.",
+      "evidenceIds": ["command-source", "command-config"],
+      "disposition": "mapped",
+      "questionIds": ["command-result"],
+      "reason": ""
+    },
+    {
+      "id": "executor",
+      "kind": "runtime",
+      "summary": "Illustrative implementation selected by the command.",
+      "evidenceIds": ["executor-source", "command-tests"],
+      "disposition": "mapped",
+      "questionIds": ["command-result"],
+      "reason": ""
+    },
+    {
+      "id": "command-output",
+      "kind": "consumer",
+      "summary": "Illustrative returned-result consumer.",
+      "evidenceIds": ["command-source", "command-contract"],
+      "disposition": "mapped",
+      "questionIds": ["command-result"],
+      "reason": ""
+    },
+    {
+      "id": "external-scheduler",
+      "kind": "consumer",
+      "summary": "Illustrative caller outside the selected local command boundary.",
+      "evidenceIds": [],
+      "disposition": "deferred",
+      "questionIds": [],
+      "reason": "Illustration: external scheduling is not selected and its source is unavailable; it remains unassessed."
+    }
+  ],
+  "questions": [
+    {
+      "id": "command-result",
+      "question": "How does the selected command choose its executor and consume a result or failure?",
+      "audiences": ["maintainer", "interface-consumer"],
+      "surfaceIds": ["command-entry", "executor", "command-output"],
+      "traceIds": ["command-roundtrip"],
+      "obligations": [
+        {"dimension": "selection", "status": "supported", "evidenceIds": ["command-source", "command-config"], "detail": "Illustration: configuration selects the executor; replace with actual precedence and defaults."},
+        {"dimension": "outputs", "status": "supported", "evidenceIds": ["executor-source", "command-source"], "detail": "Illustration: an explicit returned value becomes command output; replace with return-versus-mutation evidence."},
+        {"dimension": "state", "status": "supported", "evidenceIds": ["command-source"], "detail": "Illustration: the visible effect is output emission; replace with every selected material state transition."},
+        {"dimension": "failures", "status": "supported", "evidenceIds": ["command-source", "command-tests"], "detail": "Illustration: errors become a nonzero exit; replace with actual fallback and partial-success behavior."},
+        {"dimension": "trust", "status": "supported", "evidenceIds": ["executor-source"], "detail": "Illustration: input validation bounds command arguments; replace with observed validation and authority."},
+        {"dimension": "compatibility", "status": "supported", "evidenceIds": ["command-contract", "command-tests"], "detail": "Illustration: a declared result shape is tested; distinguish approved intent from observed behavior."},
+        {"dimension": "consumers", "status": "supported", "evidenceIds": ["command-source"], "detail": "Illustration: the command consumes the result; external scheduling remains explicitly deferred."},
+        {"dimension": "tests", "status": "supported", "evidenceIds": ["command-tests"], "detail": "Illustration: named command cases exist in test source; source inspection does not claim that tests ran."}
+      ]
+    }
+  ],
+  "traces": [
+    {
+      "id": "command-roundtrip",
+      "questionId": "command-result",
+      "steps": [
+        {"role": "caller", "surfaceId": "command-entry", "evidenceIds": ["command-source"], "detail": "Illustration: parsed arguments enter the selected command."},
+        {"role": "selection", "surfaceId": "command-entry", "evidenceIds": ["command-config"], "detail": "Illustration: local configuration chooses the execution mode."},
+        {"role": "handler", "surfaceId": "executor", "evidenceIds": ["executor-source"], "detail": "Illustration: the executor handles the selected request."},
+        {"role": "consumer", "surfaceId": "command-output", "evidenceIds": ["command-source"], "detail": "Illustration: the command formats the returned result or failure."}
+      ]
+    }
+  ]
+}

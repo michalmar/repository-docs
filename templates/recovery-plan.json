@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "goal": "Recover the bounded architecture spine and one public interface; replace this example with the approved goal.",
+  "audiences": ["maintainer", "interface-consumer"],
+  "unitBudget": 2,
+  "inventory": {
+    "ref": "artifact:replace-with-versioned-inventory",
+    "scope": "Replace with the agreed domains, entry points, allowed evidence, and documentation boundary.",
+    "checked": ["Tracked paths, entry points, package metadata, existing docs, configuration, and test declarations"],
+    "unchecked": ["Replace with discovery surfaces that were not examined"],
+    "exclusions": [
+      {
+        "scope": "External repositories",
+        "reason": "Not included in this explicitly bounded run",
+        "evidenceRef": "artifact:replace-with-scope-decision"
+      }
+    ]
+  },
+  "approvalRef": "artifact:replace-with-run-scope-and-unit-budget-approval",
+  "instructionPaths": ["AGENTS.md", ".github/copilot-instructions.md", "docs/documentation-policy.md"],
+  "navigation": ["README.md", "docs/README.md", "docs/documentation-map.json"],
+  "items": [
+    {
+      "id": "architecture-spine",
+      "question": "What are the runtime components and their source-backed boundaries?",
+      "scope": "The entry point and its declared dependencies, not every implementation detail.",
+      "audiences": ["maintainer", "interface-consumer"],
+      "priority": 100,
+      "rationale": "Establish navigation and prerequisites before interface details.",
+      "owner": null,
+      "authority": "observed",
+      "authorityRef": null,
+      "watch": {
+        "source": ["src/main.mjs"],
+        "config": ["package.json"],
+        "tests": ["tests/startup.test.mjs"]
+      },
+      "documents": ["docs/architecture.md"],
+      "dependencies": [],
+      "issues": []
+    },
+    {
+      "id": "public-interface",
+      "question": "How does an external consumer invoke the interface and handle its failure modes?",
+      "scope": "The selected interface, its registrations, configuration, callers, and named tests.",
+      "audiences": ["interface-consumer"],
+      "priority": 90,
+      "rationale": "An exposed integration boundary follows the architecture prerequisite.",
+      "owner": null,
+      "authority": "proposed",
+      "authorityRef": null,
+      "watch": {
+        "source": ["src/interface/"],
+        "config": ["config/interface.json"],
+        "tests": ["tests/interface.test.mjs"]
+      },
+      "documents": ["docs/interface.md"],
+      "dependencies": ["architecture-spine"],
+      "issues": [
+        {
+          "id": "failure-coverage",
+          "description": "Establish failure and partial-success obligations before claiming closed coverage.",
+          "material": true
+        }
+      ]
+    }
+  ]
+}

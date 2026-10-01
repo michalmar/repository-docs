@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "repository-docs",
+  "version": "0.6.0",
+  "description": "Source-traced discovery, documentation bootstrap and updates, cross-project reuse documentation, guided local reuse setup and an organization reuse index, resumable recovery, and independent advisory review.",
+  "repository": "https://github.com/msucharda/repository-docs",
+  "license": "MIT",
+  "keywords": ["documentation", "discovery", "contracts", "reuse", "recovery", "review"]
+}
