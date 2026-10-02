@@ -17,8 +17,8 @@ exactly what, if anything, is left for you to do.
 
 ## Status
 
-Experimental, version `0.7.0`. Developed and evaluated with GitHub Copilot CLI,
-mostly on synthetic fixtures:
+Version `1.0.0`, the first stable release. Developed and evaluated with GitHub
+Copilot CLI, mostly on synthetic fixtures:
 
 - With one always-loaded instruction pointing to the reuse index, fresh agents
   reused the right library in every synthetic cross-repository run; without
@@ -26,23 +26,51 @@ mostly on synthetic fixtures:
 - Reuse pages cut exploration by 30-45%, but did not change correctness
   against small, readable libraries.
 
-Version `0.7.0` replaces the earlier set of skills with these three and clones
-repositories on demand. Its helper is covered by local fixture tests; the
-skills themselves, on-demand cloning by agents, real GitHub or Azure DevOps
-organizations, and hosts other than Copilot have not been evaluated yet.
-Review by an agent is advisory, not a guarantee.
+Version `1.0.0` installs from this repository's plugin marketplace and pins the
+models of the internal agents. Its helper is covered by local fixture tests and
+the skills have been used on real repositories; on-demand cloning by agents,
+real GitHub or Azure DevOps organizations, and hosts other than Copilot have
+not been evaluated yet. Review by an agent is advisory, not a guarantee.
 
 ## Install
 
 Requires GitHub Copilot CLI, Node.js 22+ and Git. The helper uses only Node
 built-ins, so there is nothing to `npm install`.
 
+This repository is also a plugin marketplace named `repository-docs`. Register
+it once, then install the plugin from it:
+
 ```powershell
-copilot plugin install msucharda/repository-docs
+copilot plugin marketplace add msucharda/repository-docs
+copilot plugin install repository-docs@repository-docs
 ```
 
+In an interactive session, use `/plugin marketplace add` and `/plugin install`
+with the same arguments. In the GitHub Copilot app, browse marketplaces and
+install plugins under **Customize** > **Plugins**. Copilot CLI has
+deprecated direct installs from a repository (`copilot plugin install
+msucharda/repository-docs`); only `plugin@marketplace` installs remain
+supported.
+
 Start a **new** session; `/skills list` shows the three skills. Installing does
-not change any repository.
+not change any repository. To get a newer version, run `copilot plugin update
+repository-docs`.
+
+If you installed the plugin directly from the repository before, run
+`copilot plugin uninstall repository-docs`, install it from the marketplace as
+above and run `/docs-index` in a new session. The helper path changes with the
+install location, so `/docs-index` reports the personal instruction as
+different and offers to repair it.
+
+## Models
+
+The skills run on the model of your session; a plugin cannot select it. Select
+GPT-6.1 Sol with `xhigh` reasoning effort (`/model`) before you run a skill.
+
+The internal agents select their own models: `repository-discovery` runs on
+GPT-6.1 Sol and `documentation-reviewer` on Claude Opus 5.5, both with `xhigh`
+reasoning effort. The review therefore comes from a different model family than
+the drafts. Both models must be available under your Copilot plan and policies.
 
 ## How it fits together
 

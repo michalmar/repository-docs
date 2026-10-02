@@ -7,6 +7,11 @@ export const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..'
 export const schemaUrl = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
 export const skills = ['docs-create', 'docs-index', 'docs-update'];
 export const agents = ['documentation-reviewer', 'repository-discovery'];
+// Review runs on a different model family than discovery, both at xhigh effort.
+export const agentModels = {
+  'documentation-reviewer': 'claude-opus-5.5',
+  'repository-discovery': 'gpt-6.1-sol',
+};
 export const procedures = [
   ...skills.map(name => `skills/${name}/SKILL.md`),
   ...agents.map(name => `com.github.copilot/agents/${name}.agent.md`),
@@ -47,6 +52,26 @@ export function validateManifest(manifest) {
   }
 }
 
+// The repository is its own Copilot plugin marketplace with a single entry that
+// installs the package root and mirrors the plugin manifest.
+export function validateMarketplace(marketplace, manifest) {
+  for (const key of Object.keys(marketplace)) {
+    assert.ok(['name', 'owner', 'metadata', 'plugins'].includes(key), `Unsupported marketplace field: ${key}`);
+  }
+  assert.equal(marketplace.name, manifest.name, 'The marketplace is named after the plugin');
+  assert.ok(marketplace.owner && typeof marketplace.owner.name === 'string' && marketplace.owner.name,
+    'The marketplace needs an owner name');
+  assert.ok(Array.isArray(marketplace.plugins) && marketplace.plugins.length === 1,
+    'The marketplace lists exactly one plugin');
+  const [entry] = marketplace.plugins;
+  const mirrored = ['name', 'description', 'version', 'repository', 'license', 'keywords'];
+  assert.deepEqual(Object.keys(entry).sort(), [...mirrored, 'source'].sort(), 'Unexpected marketplace entry fields');
+  assert.equal(entry.source, './', 'The marketplace entry installs the repository root');
+  for (const key of mirrored) {
+    assert.deepEqual(entry[key], manifest[key], `Marketplace entry ${key} must match plugin.json`);
+  }
+}
+
 // This package deliberately uses single-line JSON values, a small YAML subset.
 export function frontmatter(text) {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
@@ -63,13 +88,16 @@ export function frontmatter(text) {
 
 export function validateProcedure(text, name, readOnlyAgent = false) {
   const fields = frontmatter(text);
-  assert.deepEqual(Object.keys(fields).sort(),
-    (readOnlyAgent ? ['name', 'description', 'tools'] : ['name', 'description', 'compatibility']).sort());
+  assert.deepEqual(Object.keys(fields).sort(), (readOnlyAgent
+    ? ['name', 'description', 'tools', 'model', 'reasoning-effort']
+    : ['name', 'description', 'compatibility']).sort());
   assert.equal(fields.name, name);
   assert.equal(typeof fields.description, 'string');
   assert.ok(fields.description.length > 0 && fields.description.length <= 1024);
   if (readOnlyAgent) {
     assert.deepEqual(fields.tools, ['read', 'search'], 'Read-only agents must have only documented read/search aliases');
+    assert.equal(fields.model, agentModels[name], `${name} must run on ${agentModels[name]}`);
+    assert.equal(fields['reasoning-effort'], 'xhigh', `${name} must use xhigh reasoning effort`);
   } else {
     assert.equal(typeof fields.compatibility, 'string');
     assert.ok(fields.compatibility.length > 0 && fields.compatibility.length <= 500);
@@ -111,8 +139,9 @@ export function validatePackage(root = packageRoot) {
   const manifest = JSON.parse(readFileSync(join(root, 'plugin.json'), 'utf8'));
   validateManifest(manifest);
   assert.equal(manifest.name, 'repository-docs');
-  assert.equal(manifest.version, '0.7.0');
+  assert.equal(manifest.version, '1.0.0');
   assert.equal(manifest.license, 'MIT', 'The package is MIT licensed');
+  validateMarketplace(JSON.parse(readFileSync(join(root, '.github', 'plugin', 'marketplace.json'), 'utf8')), manifest);
   assert.deepEqual(readdirSync(join(root, 'skills')).sort(), skills, 'Users see exactly three skills');
   assert.deepEqual(readdirSync(join(root, 'com.github.copilot', 'agents')).sort(),
     agents.map(name => `${name}.agent.md`));
