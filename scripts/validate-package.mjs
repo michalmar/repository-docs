@@ -5,14 +5,16 @@ import { fileURLToPath } from 'node:url';
 
 export const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const schemaUrl = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
+export const skills = ['docs-create', 'docs-index', 'docs-update'];
+export const agents = ['documentation-reviewer', 'repository-discovery'];
 export const procedures = [
-  'skills/docs-bootstrap/SKILL.md',
-  'skills/docs-update/SKILL.md',
-  'com.github.copilot/agents/documentation-reviewer.agent.md',
-  'com.github.copilot/agents/repository-discovery.agent.md',
-  'skills/reuse-setup/SKILL.md',
-  'skills/reuse-index/SKILL.md',
+  ...skills.map(name => `skills/${name}/SKILL.md`),
+  ...agents.map(name => `com.github.copilot/agents/${name}.agent.md`),
 ];
+const packageFiles = {
+  references: ['documentation-policy.md', 'reuse-index.md', 'reuse-workflow.md'],
+  templates: ['reuse-catalog.json', 'reuse-page.md'],
+};
 
 export function validateManifest(manifest) {
   assert.equal(manifest.$schema, schemaUrl, 'Use the canonical Agent Plugins 1.0 schema');
@@ -73,9 +75,8 @@ export function validateProcedure(text, name, readOnlyAgent = false) {
     assert.ok(fields.compatibility.length > 0 && fields.compatibility.length <= 500);
     assert.ok(text.split('\n').length < 500);
   }
-  const reference = name === 'reuse-setup'
-    ? '../../references/reuse-index.md' : '../../references/documentation-policy.md';
-  assert.ok(text.includes(reference), `Required reference pointer is missing: ${reference}`);
+  const reference = '../../references/documentation-policy.md';
+  assert.ok(localLinkTargets(text).includes(reference), `Required reference pointer is missing: ${reference}`);
 }
 
 export function resolveResource(root, sourceFile, target) {
@@ -110,12 +111,16 @@ export function validatePackage(root = packageRoot) {
   const manifest = JSON.parse(readFileSync(join(root, 'plugin.json'), 'utf8'));
   validateManifest(manifest);
   assert.equal(manifest.name, 'repository-docs');
-  assert.equal(manifest.version, '0.6.0');
+  assert.equal(manifest.version, '0.7.0');
   assert.equal(manifest.license, 'MIT', 'The package is MIT licensed');
-  assert.deepEqual(readdirSync(join(root, 'skills')).sort(),
-    ['docs-bootstrap', 'docs-update', 'reuse-index', 'reuse-setup']);
+  assert.deepEqual(readdirSync(join(root, 'skills')).sort(), skills, 'Users see exactly three skills');
   assert.deepEqual(readdirSync(join(root, 'com.github.copilot', 'agents')).sort(),
-    ['documentation-reviewer.agent.md', 'repository-discovery.agent.md']);
+    agents.map(name => `${name}.agent.md`));
+  for (const [directory, names] of Object.entries(packageFiles)) {
+    assert.deepEqual(readdirSync(join(root, directory)).sort(), names, `Unexpected files in ${directory}`);
+  }
+  assert.deepEqual(readdirSync(join(root, 'scripts')).filter(name => name !== 'export-public.mjs').sort(),
+    ['reuse.mjs', 'validate-package.mjs'], 'Unexpected files in scripts');
   for (const path of [
     'mcp.json', '.mcp.json', 'hooks.json', 'agents',
     'com.github.copilot/hooks', 'com.github.copilot/rules',
@@ -123,40 +128,16 @@ export function validatePackage(root = packageRoot) {
   ]) {
     assert.ok(!existsSync(join(root, path)), `Out-of-scope runtime component: ${path}`);
   }
-  for (const [index, procedure] of procedures.entries()) {
-    const name = ['docs-bootstrap', 'docs-update', 'documentation-reviewer', 'repository-discovery',
-      'reuse-setup', 'reuse-index'][index];
-    validateProcedure(readFileSync(join(root, procedure), 'utf8'), name, index === 2 || index === 3);
+  for (const procedure of procedures) {
+    const agent = procedure.endsWith('.agent.md');
+    const name = agent ? procedure.split('/').at(-1).replace('.agent.md', '') : procedure.split('/').at(-2);
+    validateProcedure(readFileSync(join(root, procedure), 'utf8'), name, agent);
   }
-  for (const path of [
-    'references/documentation-policy.md', 'templates/interface-contract.md',
-    'templates/project-policy.md', 'LICENSE', 'THIRD-PARTY-NOTICES.md',
-    'references/repository-discovery.md', 'references/documentation-unit.md',
-    'references/documentation-rounds.md',
-    'references/recovery-workflow.md', 'references/recovery-ledger.md',
-    'templates/architecture-overview.md', 'templates/recovery-plan.json',
-    'scripts/recovery.mjs', 'scripts/discovery.mjs',
-    'references/discovery-packet.md', 'templates/discovery-packet.json',
-    'templates/discovery-review.json',
-    'references/discovery-breadth.md', 'references/discovery-steering.md',
-    'references/discovery-map-review.md',
-    'templates/discovery-report.md',
-    'references/reuse-workflow.md', 'templates/reuse-page.md', 'templates/reuse-catalog.json',
-    'templates/reuse-index-manifest.json', 'templates/reuse-index-areas.json',
-    'references/reuse-index.md', 'scripts/reuse-index.mjs', 'scripts/reuse.mjs',
-  ]) {
+  for (const path of ['LICENSE', 'THIRD-PARTY-NOTICES.md']) {
     assert.ok(lstatSync(join(root, path)).isFile(), `Required file missing: ${path}`);
   }
-  const map = JSON.parse(readFileSync(join(root, 'templates', 'documentation-map.json'), 'utf8'));
-  assert.equal(map.formatVersion, 1);
-  assert.equal(map.documents.length, 1);
-  assert.deepEqual(Object.keys(map.documents[0]).sort(), ['id', 'owner', 'path', 'sources', 'tests']);
-  const plan = JSON.parse(readFileSync(join(root, 'templates', 'recovery-plan.json'), 'utf8'));
-  assert.ok(plan && typeof plan === 'object' && !Array.isArray(plan), 'Recovery plan must be a JSON object');
-  for (const name of ['discovery-packet.json', 'discovery-review.json']) {
-    const template = JSON.parse(readFileSync(join(root, 'templates', name), 'utf8'));
-    assert.equal(template.schemaVersion, 1, `${name} must use discovery schema version 1`);
-  }
+  const catalog = JSON.parse(readFileSync(join(root, 'templates', 'reuse-catalog.json'), 'utf8'));
+  assert.equal(catalog.formatVersion, 1, 'The catalog template must use format version 1');
   let links = 0;
   for (const file of markdownFiles(root)) {
     const text = readFileSync(file, 'utf8');

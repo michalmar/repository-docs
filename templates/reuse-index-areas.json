@@ -1,9 +1,0 @@
-{
-  "areas": [
-    {
-      "id": "<consumer-facing area id: letters, digits, hyphens or underscores>",
-      "title": "<one line: area title shown in llms.txt>",
-      "description": "<one line: the consumer task this area covers>"
-    }
-  ]
-}

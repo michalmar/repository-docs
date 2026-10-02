@@ -1,20 +1,24 @@
 # Repository Docs
 
-A GitHub Copilot plugin for evidence-based repository documentation. It helps
-an agent map a repository from its source, write and update documentation next
-to the code, document reusable libraries and integrations for other projects,
-and route agents in other repositories to them through an organization reuse
-index.
+A GitHub Copilot plugin that helps teams stop reimplementing what another
+repository in their organization already provides. It documents each
+repository's reusable libraries and integrations for other projects, publishes
+them in an organization reuse index, and points every agent at that index.
 
-Canonical facts stay in the repository being documented; this package holds
-the shared process. Agents propose exact files or hunks and wait for your
-approval before applying them. Existing documentation is treated as evidence,
-and conflicts with the code are reported rather than silently overwritten.
+You use three skills. Each one does its own research, review and Git work, asks
+you once before committing or publishing anything, and ends by telling you
+exactly what, if anything, is left for you to do.
+
+| Skill | What it does |
+| --- | --- |
+| [`/docs-index`](skills/docs-index/SKILL.md) | Sets up the organization reuse index on your machine. If one is already set up, it just says so. Otherwise it connects to an existing index by its Git URL, or, if there is none, explains your options and creates one (with or without a remote repository). |
+| [`/docs-create`](skills/docs-create/SKILL.md) | Documents the current repository's reusable libraries and integrations in `docs/reuse/`, has the drafts reviewed independently, and after your confirmation commits, pushes and publishes them to the index. |
+| [`/docs-update`](skills/docs-update/SKILL.md) | Brings that documentation up to date after code changes and publishes it, including documentation that was merged into the default branch since the last publication. |
 
 ## Status
 
-Experimental, version `0.6.0`. Developed and evaluated with GitHub Copilot CLI,
-mostly on synthetic fixtures and a few open-source repositories:
+Experimental, version `0.7.0`. Developed and evaluated with GitHub Copilot CLI,
+mostly on synthetic fixtures:
 
 - With one always-loaded instruction pointing to the reuse index, fresh agents
   reused the right library in every synthetic cross-repository run; without
@@ -22,79 +26,53 @@ mostly on synthetic fixtures and a few open-source repositories:
 - Reuse pages cut exploration by 30-45%, but did not change correctness
   against small, readable libraries.
 
-Not yet validated: setup against real GitHub or Azure DevOps organizations,
-real user profiles, owner review on a real legacy repository, and agent hosts
-other than Copilot. Semantic review by an agent is advisory, not a guarantee.
+Version `0.7.0` replaces the earlier set of skills with these three and clones
+repositories on demand. Its helper is covered by local fixture tests; the
+skills themselves, on-demand cloning by agents, real GitHub or Azure DevOps
+organizations, and hosts other than Copilot have not been evaluated yet.
+Review by an agent is advisory, not a guarantee.
 
 ## Install
 
-Requires GitHub Copilot CLI. The helper scripts need Node.js 22+ and Git; they
-use only Node built-ins, so there is nothing to `npm install`.
+Requires GitHub Copilot CLI, Node.js 22+ and Git. The helper uses only Node
+built-ins, so there is nothing to `npm install`.
 
 ```powershell
 copilot plugin install msucharda/repository-docs
-copilot plugin list
 ```
 
-Start a **new** session, then check `/skills list` and `/agent` for the skills
-and agents below. Installing does not change any repository.
+Start a **new** session; `/skills list` shows the three skills. Installing does
+not change any repository.
 
-## Components
+## How it fits together
 
-| Component | Responsibility |
-| --- | --- |
-| [docs-bootstrap](skills/docs-bootstrap/SKILL.md) | Narrow onboarding, reuse documentation, or explicit repository recovery/resume: inventory, architecture spine, prioritized research, exact proposals and review. |
-| [docs-update](skills/docs-update/SKILL.md) | From an actual base/head diff, including renames, deletions and indirect impacts: targeted documentation changes or reasoned no-impact. |
-| [reuse-setup](skills/reuse-setup/SKILL.md) | Guide a developer through choosing a clone root, approving personal configuration and pointer writes, then inspecting and safely syncing local organization clones. |
-| [reuse-index](skills/reuse-index/SKILL.md) | Maintainer workflow: sync, regenerate the index within its size budget, review and commit, then request push approval. |
-| [repository-discovery](com.github.copilot/agents/repository-discovery.agent.md) | Read-only system map: meaningful modules, evidenced relationships and scoped research handoffs. |
-| [documentation-reviewer](com.github.copilot/agents/documentation-reviewer.agent.md) | Fresh-context advisory review limited to `read`/`search` tools; derives expected impacts before reading the author's explanation. |
-| [Shared policy](references/documentation-policy.md) | Authority, evidence labels, escalation and report outcomes, maintained once. |
-| [Discovery](references/repository-discovery.md), [map review](references/discovery-map-review.md), [packet checker](references/discovery-packet.md) | Evidence views, flow traces, source-first coverage review and at most one authorized repair before writing. |
-| [Recovery workflow](references/recovery-workflow.md) and [ledger helper](references/recovery-ledger.md) | Resumable, external state for whole-repository documentation recovery with one active work item. |
-| [Reuse documentation](references/reuse-workflow.md), [page](templates/reuse-page.md) and [catalog](templates/reuse-catalog.json) templates | Pages for cross-project consumers: when to use a unit, install, configure, minimal usage, behavior, deprecations. |
-| [Organization reuse index](references/reuse-index.md), [helper](scripts/reuse.mjs), [manifest](templates/reuse-index-manifest.json) and [areas](templates/reuse-index-areas.json) templates | Local side-by-side clones, a personal pointer instruction, safe fast-forward sync and a generated two-level `llms.txt` index. |
-| [Overview](templates/architecture-overview.md), [contract](templates/interface-contract.md), [map](templates/documentation-map.json), [project exceptions](templates/project-policy.md) | Small starting points, used only for actual gaps. |
+1. One person runs `/docs-index` and creates the index, preferably with a remote
+   repository, and shares its URL.
+2. Every developer runs `/docs-index` once with that URL. Only the index is
+   cloned, into a folder such as `D:\git\<index>`. A personal instruction makes
+   every new agent session read the index before writing an integration, API
+   client, data extractor or shared utility.
+3. In each repository worth reusing, someone runs `/docs-create`. If the
+   documentation lands on a feature branch, the skill tells you to merge it and
+   then run `/docs-update`, which publishes it.
+4. When code changes, `/docs-update` updates the pages and the index.
+5. When an agent elsewhere needs a documented repository, it clones it on
+   demand beside the index, or fast-forwards an existing clean clone.
 
-## Use it
-
-Open a new session in the repository you want to document. Example requests:
-
-- `Use /docs-bootstrap for this repository. Inventory existing docs and owners,
-  then propose a narrow diff for the queue interface. Do not apply it.`
-- `Use /docs-update for base <commit> and head <commit>. Assess the whole patch
-  and propose affected docs only.`
-- `Teams in other projects keep reimplementing what this repository provides.
-  Document its reusable libraries and integrations for them; propose the pages
-  and catalog, do not apply them.`
-- `Use /docs-bootstrap to recover maintainer and integration documentation.
-  Inventory the whole repository first and propose a prioritized work queue.`
-
-Discovery of a skill is not permission to edit: approve exact paths or hunks
-before anything is applied.
-
-## Organization reuse index
-
-1. Document each source repository in reuse mode and commit its
-   `docs/reuse/` pages and `docs/reuse/catalog.json`.
-2. Create an index repository from the [manifest](templates/reuse-index-manifest.json)
-   and [areas](templates/reuse-index-areas.json) templates, clone it beside the
-   source repositories, and generate the index:
-   `node scripts/reuse.mjs generate <index checkout>`.
-3. Each developer asks Copilot to `Set up the organization repositories`. The
-   `reuse-setup` skill previews two personal files, a configuration and an
-   always-loaded pointer instruction, and writes them only after confirmation.
-
-See the [index reference](references/reuse-index.md) for the manifest format,
-sync and status rules, staleness reporting and pointer channels.
+The index stores routing files and a copy of each published catalog, so
+publishing or searching never requires cloning the whole organization. See the
+[index reference](references/reuse-index.md) for its layout and helper commands
+and the [reuse workflow](references/reuse-workflow.md) for how documentation is
+researched, reviewed and published.
 
 ## Scope
 
-No MCP server, hooks, telemetry, CI, deployment or automatic updater is
-included. The helper scripts are offline Node.js/Git code: they validate
-declared evidence and Git state, never edit consumer documentation and never
-run repository code. The two agents use Copilot's agent directory; other
-clients may ignore them.
+The plugin writes only uncommitted drafts before your confirmation; after it,
+it commits only its own files, never force-pushes or merges pull requests, and
+outside repositories writes only two personal files that `/docs-index` shows
+first. No MCP server, hooks, telemetry or CI is included, and the helper never
+runs repository code. The two internal agents use Copilot's agent directory;
+other clients may ignore them.
 
 ## License
 
