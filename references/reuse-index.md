@@ -1,329 +1,155 @@
 # Organization reuse index
 
-Use after approved [reuse documentation](reuse-workflow.md) exists in one or
-more repositories, to let agents in other repositories find it. The index is
-**routing only**: each repository's `docs/reuse/` pages and `catalog.json` stay
-the single source of the explanation.
+The index lets agents in any repository find reusable libraries and
+integrations documented elsewhere in the organization. It is **routing only**:
+each repository's `docs/reuse/` pages stay the single source of the
+explanation. The [docs-index](../skills/docs-index/SKILL.md) skill connects or
+creates it; [docs-create](../skills/docs-create/SKILL.md) and
+[docs-update](../skills/docs-update/SKILL.md) publish into it through the
+[helper](../scripts/reuse.mjs).
 
-## Manifest and area taxonomy
+## Layout
 
-Keep an index repository beside the repositories it routes to, all under one
-clone root: `<root>/<name>`. Its `manifest.json` and `areas.json` are reviewed,
-versioned inputs. A new index can start from the
-[manifest template](../templates/reuse-index-manifest.json) and
-[areas template](../templates/reuse-index-areas.json); replace every
-placeholder before generating. For example, in `<root>/index/manifest.json`:
+The index is a Git repository cloned at `<root>/<indexRepo>`. Every other
+repository it routes to resolves as a sibling, `<root>/<name>`, and is cloned
+**on demand**, not up front.
 
-```json
-{
-  "title": "Acme reuse index",
-  "purpose": "Find shared units before implementing a new integration.",
-  "repositories": [
-    {
-      "name": "sdk",
-      "url": "https://github.com/acme/sdk.git",
-      "branch": "main",
-      "owner": "platform team",
-      "area": "clients"
-    },
-    {
-      "name": "feeds",
-      "url": "https://dev.azure.com/acme/data/_git/feeds",
-      "branch": "main",
-      "owner": "data team",
-      "area": "integrations"
-    }
-  ]
-}
-```
-
-`name` is the unique, explicit local folder name, not a name derived from
-`url`; it uses letters, digits, dots, underscores or hyphens, beginning and
-ending with a letter or digit. Names must also be distinct ignoring case, so
-they do not collide on Windows. The URL may be any Git clone URL. `branch`
-identifies the checked-out branch, `owner` is a team (not a taxonomy area),
-and `area` is a required default area id. All five entry fields are required;
-unknown manifest fields are rejected. The title and purpose are each a
-nonempty line.
-
-In `<root>/index/areas.json`, define consumer-facing tasks, not organization
-teams:
-
-```json
-{
-  "areas": [
-    { "id": "clients", "title": "API clients", "description": "Build and authenticate API clients." },
-    { "id": "integrations", "title": "Data integrations", "description": "Ingest and process external data." }
-  ]
-}
-```
-
-Each area id is unique ignoring case and contains only letters, digits,
-hyphens or underscores, starting with a letter or digit. Its title and task
-description are each one nonempty line. A catalog unit may specify an optional `area`
-that overrides its repository's default; both defaults and overrides must
-name an area in this taxonomy. Otherwise the generator fails and names the
-offending repository or unit.
-
-## Roles, change control and maintenance triggers
-
-The **source repository owner** approves the reuse documentation and catalog
-for that repository; the **index maintainer** proposes routing/taxonomy changes
-and reviews the generated diff. A manifest `owner` records the owning team,
-not the audience or a taxonomy area. The authorized approver decides the exact
-maintenance proposal before edits, and separately approves any push and its
-target after reviewing the resulting index diff. A recorded approval or a
-successful generator run is not permission to push. For an index topic branch,
-the user opens the pull request through their GitHub or Azure DevOps UI.
-Follow the [reuse-index maintainer skill](../skills/reuse-index/SKILL.md)
-for the ordered publication procedure.
-
-Propose maintenance from a concrete **budget failure**, a documented unit with
-**no fitting area**, or an **empty or near-empty area**, not from team ownership
-alone. Inventory relevant committed catalogs, assigned default and override
-areas, generated area sizes, consumer tasks, and empty-area warnings. Show
-evidence, intended routes, affected repositories and the proposed before/after
-diff to the owner/approver. Keep areas as consumer-facing capability domains;
-`owner` remains a separate manifest field. Report competing interpretations
-instead of silently inventing an area or reassigning a unit.
-
-| Operation | Proposed change and approval boundary |
+| File | Content |
 | --- | --- |
-| Add a repository | Show its URL, branch, owner, unique local clone name, committed catalog and default consumer area. Obtain approval before editing `manifest.json` or creating its sibling clone. Confirm an existing clone's origin and branch; never overwrite it. |
-| Remove a repository | Establish that no needed unit remains routed through it and what consumers lose. Obtain approval before removing its manifest entry. Leave its existing local clone intact; generation drops only its index routes. |
-| Create, rename, split or merge an area | Show the consumer tasks and projected unit distribution, then get approval for the exact `areas.json` and manifest default changes and any affected catalog overrides. A rename is a new id plus migration of all references, not just a display-title edit. Recheck all catalog and default references before generating. |
-| Move a unit to an existing area | Show the unit's consumer use and the catalog's current effective area. Obtain its repository owner's approval, then edit the unit's optional catalog `area` in `docs/reuse/catalog.json` (omit the override to use the repository default); review and publish it through that repository's documentation workflow, and wait for the commit on its manifest branch before syncing the index. Never substitute a manifest `owner` edit for a catalog move. |
+| `manifest.json` | `title`, `purpose` and `repositories`: each with `name`, `url`, `branch`, `owner` and default `area`. |
+| `areas.json` | `areas`: each with `id`, `title` and a one-line consumer-task `description`. |
+| `catalogs/<name>.json` | The published copy of each repository's `docs/reuse/catalog.json`. |
+| `catalog-revisions.json` | The commit each published catalog was read from, and the generated areas. |
+| `llms.txt` | Root index: areas, a search fallback over `catalogs/`, and the catalogs. |
+| `area-<id>.txt` | One line per unit in that area, linking its page in the sibling clone. |
 
-Make approved source catalog commits available on the manifest branches,
-then sync their clean sibling clones before creating an index taxonomy branch
-and generating a cross-repository area change.
-`sync` requires the index clone to be on its remote default branch, so run it
-before creating or switching to an index topic branch. `generate` can then read
-the proposed index inputs on that branch. If a new manifest entry has no
-sibling clone yet, create only that approved clone with Git after checking the
-target path, URL and branch; `sync` cannot read an unmerged topic-branch
-manifest. An incomplete source/index migration is a stop, not a partly
-published taxonomy.
+A repository `name` is its unique local folder name: letters, digits, dots,
+underscores or hyphens, beginning and ending with a letter or digit, distinct
+ignoring case. `owner` is a team, not an area. Area ids use letters, digits,
+hyphens or underscores. Unknown fields are rejected. A catalog unit may set its
+own `area` to override its repository's default; both must exist in
+`areas.json`. Areas are consumer-facing tasks, never organization teams.
 
-## Set up a developer's clones
+Because the published catalogs live in the index, publishing one repository
+never needs any other repository cloned, and an agent can search every catalog
+without cloning anything.
 
-With Node.js 22+ and Git, run from the plugin checkout. Choose an index clone
-name that is not another repository's clone name:
+## The personal pointer and on-demand clones
 
-```powershell
-node .\scripts\reuse.mjs setup 'D:\git' org-index 'https://github.com/acme/org-index.git'
-```
+`connect` and `create` write two personal files, and nothing else outside the
+clone root:
 
-`setup <root> <indexRepo> <indexUrl>` clones the index into
-`<root>/<indexRepo>` on its remote default branch, reads its `manifest.json`,
-then clones each named repository into `<root>/<name>` on its declared `branch`.
-The index must already contain a root `llms.txt`. Git handles both GitHub and
-Azure DevOps URLs through the developer's ordinary credential helper; neither
-`gh` nor `az` is used. The command does not pull existing clones, regenerate
-the index, install a plugin, or change a project repository.
+- `~/.org-reuse/config.json` with the absolute `root`, `indexRepo` and
+  `indexUrl` (`null` for a local-only index);
+- `~/.copilot/instructions/org-reuse.instructions.md`, an always-loaded
+  instruction (`applyTo: "**"`). It tells agents, before implementing an
+  integration, API client, data extractor or shared utility, to run
+  `node "<helper>" ensure`, read the absolute `<root>/<indexRepo>/llms.txt`, and
+  run `node "<helper>" ensure <name>` before opening a link into another
+  repository.
 
-It writes `~/.org-reuse/config.json` with the absolute `root`, `indexRepo` and
-`indexUrl`, plus the one-sentence instruction
-`~/.copilot/instructions/org-reuse.instructions.md`. That instruction has
-`applyTo: "**"` and names the absolute `<root>/<indexRepo>/llms.txt` path, so
-an agent in a deeper app worktree can still find the index. An existing clone
-must be a checkout at the expected path with its declared origin and branch;
-for the index, setup checks the branch recorded by its local `origin/HEAD`.
-Otherwise setup stops rather than moving or overwriting it. An existing
-personal pointer with different content is printed as an old/new difference;
-type `yes` at the prompt to replace it. An empty or declined response leaves
-the pointer and configuration unchanged. To switch clone roots, rerun setup
-with the new root and confirm the changed pointer; clones in the old root
-remain untouched.
+New sessions load the instruction; a session that was already running does not.
+Agents also need read access to the clone root; the user approves reads outside
+the project, or the session allows them.
 
-If a developer names an existing checkout outside the configured root, the
-relative index link `../<name>/...` still resolves to `<root>/<name>`, where
-`name` is the manifest's explicit clone name, not a folder inferred from its
-URL or the external checkout. Inspect only the named checkout and configured
-root; do not discover other external clones or use a linked directory as an
-in-root clone. Show the manifest URL and branch and check the destination with
-`status`. Leave the outside checkout unchanged. If `<root>/<name>` is missing,
-offer a fresh clone there only after explicit confirmation; `sync` is the
-existing safe path, but it also fetches/fast-forwards other eligible in-root
-clones. Disclose those effects before confirmation; if only the one clone is
-approved, stop rather than invoking whole-root `sync`. If the destination
-already exists, report its actual state instead of replacing it; normal
-origin, branch, dirty and diverged rules apply. Never relocate an external
-checkout or silently change the root.
+`ensure` first refreshes the index: it fast-forwards a clean index clone on its
+default branch and otherwise reports why it uses the local copy. With a name it
+then handles that repository:
 
-For isolated local tests, redirect the operating-system home with `USERPROFILE`
-on Windows or `HOME` on Unix. When manually checking discovery in the Copilot
-CLI, set `COPILOT_HOME` to `<test-home>/.copilot` as well, then run
-`copilot instruction list --json`. This check should list the generated file
-with `location: "user"`; do not run setup against a real profile merely to
-test the pointer.
-
-## Inspect and update the local clones
-
-After `setup`, run these commands from the plugin checkout without arguments:
-
-```powershell
-node .\scripts\reuse.mjs status
-node .\scripts\reuse.mjs sync
-```
-
-Both commands read the root and index clone from `~/.org-reuse/config.json`,
-then the index clone's **local** manifest. They require the index checkout to
-remain on its remote default branch with the configured origin. They neither
-fetch the index nor regenerate its `llms.txt`; update and review the index
-manifest separately before syncing a newly listed repository.
-
-`status` prints the clone root, the personal pointer's path and whether its
-content is present, missing or different, then one state for every manifest
-repository: `missing`, `clean`, `behind`, `dirty`, `on another branch`,
-`diverged` (including local commits ahead of the remote-tracking branch), or
-`foreign origin`. It is read-only and uses **locally fetched**
-`origin/<branch>` refs. A remote commit may not appear as `behind` until a
-fetch or `sync` updates that ref; status does not claim to probe the live
-provider. A matching checkout without that tracking ref reports an error
-instead of guessing its state; `sync` can fetch the ref for a clean checkout.
-
-`sync` first checks every existing clone's origin, including the index. A
-foreign origin aborts before **any** fetch or clone and reports the folder,
-expected URL and actual URL. It clones missing manifest repositories on their
-declared branches, skips dirty and wrong-branch clones without fetching them,
-and fetches only clean matching-branch clones. It fast-forwards when the
-fetched manifest branch descends from local `HEAD`, and reports a diverged
-clone without merging or changing its checked-out files. It never deletes,
-moves or renames clones, changes the pointer/configuration, pushes, or
-regenerates the index. A Git/network error is reported as an error, not as a
-successful sync.
-
-Both commands compare the **committed** `catalog-revisions.json` in the local
-index clone (`HEAD`) with the last commit changing `docs/reuse/catalog.json`
-on each clone's local manifest branch. `sync` makes this comparison after its
-clone/fetch/fast-forward work; `status` uses only local refs and does not fetch.
-A catalog change pushed to a clean clone's remote is therefore detected by
-`sync`, then also shown by `status`. Source-only commits do not make an index
-stale. Uncommitted edits to the index record or a clone's catalog do not count
-as published revisions.
-
-An indexed repository with a different committed catalog revision is reported
-as `index stale`; a manifest repository absent from the committed record is
-`not indexed` (including when there is no committed record yet). The report
-prints the republish command, with the index checkout path quoted, for example
-`node .\scripts\reuse.mjs generate 'D:\git\org-index'` from the plugin checkout.
-The index maintainer runs that command, reviews and commits the generated
-files, and pushes the index separately. Neither command updates the index
-clone from its remote: if another maintainer has published a new index, update
-your local index checkout separately before interpreting its record. A
-missing/foreign clone cannot supply a trusted catalog for comparison; a
-missing local manifest branch is reported as unavailable, and a missing
-committed catalog or malformed revision record is an error, not a clean index.
-
-Origin comparison accepts a trailing `.git`, case-insensitive hosts, and the
-GitHub HTTPS/SSH forms (`https://github.com/<owner>/<repo>` and
-`git@github.com:<owner>/<repo>`). It also equates Azure DevOps modern HTTPS
-(`https://dev.azure.com/<org>/<project>/_git/<repo>`), SSH
-(`git@ssh.dev.azure.com:v3/<org>/<project>/<repo>`) and legacy HTTPS/SSH
-(`https://<org>.visualstudio.com/<project>/_git/<repo>` and
-`<org>@vs-ssh.visualstudio.com:v3/<org>/<project>/<repo>`); the legacy HTTPS
-`DefaultCollection` segment is accepted. Local fixture and normalization
-checks cover these shapes; cloning against a real Azure DevOps organization
-has **not** been verified.
-
-## Generate an area index
-
-Run from the plugin checkout, with the index checkout path as the argument:
-
-```powershell
-node scripts/reuse.mjs generate D:\git\index
-```
-
-The command reads committed catalogs on each manifest branch in the sibling
-clones. It refuses a missing clone, a wrong branch, or an uncommitted catalog;
-it never clones, pulls, commits or pushes. It writes `llms.txt`, one
-`area-<id>.txt` per nonempty area, and `catalog-revisions.json` into the
-index checkout. The root lists area titles, descriptions and links; a
-grep-all-local-catalogs fallback; and links to each catalog. Each area file
-lists its units with the same summary, package, version, status, keywords and
-source format as the flat generator. Links to sibling clones are relative
-(`../<name>/...`) from both root and area files.
-
-Areas sort by id and units by catalog id. An empty area is omitted from the
-root and reported as a warning; a previously generated file for an area that
-becomes empty is removed. No timestamps are written, so unchanged inputs
-produce byte-identical files. The revision record has `formatVersion: 1`,
-`repositories` mapping clone names to the last Git commit that changed their
-catalog, and `generatedAreas` listing the currently generated area ids. A
-source-code-only commit therefore does not make the catalog appear stale.
-
-## Generate a flat index
-
-List the repositories in a sources file and run the generator from this
-package's `scripts/` directory:
-
-```json
-{ "title": "Acme reuse index",
-  "repositories": [
-    { "checkout": "C:/checkouts/acme-sdk", "link": "https://github.com/acme/sdk/blob/main/", "revision": "<commit>" } ] }
-```
-
-```powershell
-node scripts/reuse-index.mjs sources.json llms.txt
-```
-
-`checkout` is a local checkout of the named revision; `link` is the prefix
-prepended to each catalog page path (default branch, so links stay current);
-`revision` is the commit the catalog was read from and appears in each note.
-
-For repositories cloned side by side on developer machines (for example
-`D:\git\<repository>`), keep the index in its own clone beside them and use
-relative links, so every machine resolves them against its own clones:
-
-```json
-{ "title": "Acme reuse index",
-  "repositories": [
-    { "checkout": "D:/git/acme-sdk", "link": "../acme-sdk/", "revision": "<commit>" } ] }
-```
-
-The generator writes an [llms.txt](https://llmstxt.org/) file: libraries, then
-integrations, each linked by catalog ID with its `summary`, package, version,
-status, keywords and source revision, followed by links to the catalogs. It
-refuses a missing or multi-line `summary`, an unknown type, an ID outside its
-repository, an unsafe or missing page and a duplicate repository.
-Regenerate and commit the index whenever an approved catalog changes (regenerate, never hand-edit); the
-index never adds text a catalog does not contain.
-
-Both generators limit **every completed output file** to the same
-`FLAT_INDEX_MAX_BYTES` (16,384 bytes, or 16 KiB), including headings and
-newlines. This is below the measured approximately 20 KB Copilot CLI `view`
-limit, with some headroom; it is not a guarantee for other clients. If the
-flat index, area file, root index or revision record exceeds the budget,
-generation exits with an error reporting the file and actual UTF-8 byte size
-**before** writing or replacing generated files. Invalid manifest and catalog
-inputs also fail before any generated files are changed. Split an overfull
-area or revise the taxonomy; never hand-truncate an index. Flat-mode output
-is unchanged for organizations that fit its budget.
-
-## Point agents at it
-
-`llms.txt` has no verified automatic loading by Copilot; an agent reaches it
-through a pointer. Publish the index in one repository and state its location
-in one sentence. With local clones, name the index path on that machine, for
-example: "Before implementing an integration, API client, data extractor or
-shared utility, read the organization's reuse index at
-`D:/git/acme-reuse-index/llms.txt` and use the libraries and integrations it
-links." The agent also needs read access to the sibling clones: the user
-approves reads outside the project, or the session allows them.
-
-| Channel | Reach and limits |
+| Local state of `<root>/<name>` | Result |
 | --- | --- |
-| The personal `~/.copilot/instructions/org-reuse.instructions.md` written by `setup` | Always-loaded user instruction naming this developer's absolute local index path. A local CLI 1.0.89 check in a redirected home listed it with `location: "user"` and enabled by default; no real profile was changed. |
-| A `*.instructions.md` file with `applyTo: "**"` in a directory listed by `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` | Copilot CLI loads it into every session as an external instruction (observed with CLI 1.0.89); needs distribution to developer machines, with the local index path. An `AGENTS.md` in that directory was not loaded at session start. Pilot on local clones beside three unrelated repositories, with a request that did not mention reuse: 3/3 fresh agents reused the right library with the pointer, 0/3 without it. Earlier GitHub-hosted stand-ins: 9/9 across three tasks. |
-| A project template `AGENTS.md` | Only projects created from the template. |
-| A skill whose description names these tasks | No always-loaded text beyond its description; relies on the model activating and then following it. Pilot: activated 9 of 9 times, but in 2 runs the agent ignored its body and reimplemented. |
+| Missing | Cloned on the manifest branch. |
+| Clean, on the manifest branch | Fetched and fast-forwarded; diverged clones are left unchanged. |
+| Local changes or another branch | Left unchanged and reported; its files may differ from the manifest branch. |
+| Different origin | Error; left unchanged. |
+| Fetch fails | Reported; the local files are used. |
 
-Prefer an always-loaded instruction as the primary route; add a skill only as a
-supplement. An `--add-dir` checkout is announced to the model and acts as a
-pointer of its own. Side-by-side clones are no substitute for a pointer: when
-the request asked for reuse, agents without one walked up from the project and
-found the clones, but when it did not, none looked. Measure a pointer by
-whether a fresh agent actually reuses the right unit and passes executable
-checks, not by whether it opens the index. The pilot evidence is recorded in
-the development repository's result catalog.
+It never deletes, moves, renames, resets or merges a clone.
+
+## Helper commands
+
+Run from the package root as `node scripts/reuse.mjs <command>`.
+
+| Command | Effect |
+| --- | --- |
+| `status [<project>]` | Read-only: configuration, pointer, index clone, published repositories with their local clone state and, for a project checkout, its branch, documentation and publication state. Uses local refs only. |
+| `connect <root> <indexRepo> <url>` | Clones an existing index (only the index) and writes the personal files. Refuses an empty remote. |
+| `create <root> <indexRepo> <title> [<url>]` | Creates a new empty index, pushes it to an empty remote when given, and writes the personal files. Refuses a remote with content. |
+| `repair` | Rewrites the personal files for the configured index, remote or local-only, for example after the helper moved to another install location. Refuses a missing index clone. |
+| `ensure [<name>]` | Refreshes the index, then clones or fast-forwards one repository as above. |
+| `publish <project> [options]` | Publishes the project's committed catalog from its `origin` default branch. |
+| `generate <index>` | Maintainer regeneration after editing `manifest.json` or `areas.json`. |
+
+When the personal pointer exists with different content, `connect`, `create`
+and `repair` print both versions and replace it only after `yes` on standard
+input. Origins
+match across GitHub HTTPS and SSH forms and Azure DevOps modern, SSH and legacy
+`visualstudio.com` forms, ignoring a trailing `.git` and letter case. Commands
+that write to the index ask the remote for its default branch, so a renamed
+default branch is noticed.
+
+## Publication
+
+`publish <project>` refreshes the index and requires it to be clean, on its
+default branch and not ahead of its remote. It finds the project in the manifest
+by its `origin` URL. An unregistered project needs `--owner` and `--area`, and
+`--area-title` with `--area-description` when the area is new; `--name`
+overrides the default name taken from the URL.
+
+It fetches the project's default branch and reads `docs/reuse/catalog.json` and
+the pages it names **from `origin/<branch>`**, never from the working tree, so
+uncommitted, unpushed or feature-branch documentation is not published; the
+command fails with "merge the documentation into `<branch>` first". It then
+stores the catalog in `catalogs/<name>.json`, records its revision, regenerates
+the routing files within the size budget and commits. If nothing changed it
+reports the index as up to date.
+
+With a remote, it pushes to the index's default branch. When another developer
+published at the same moment, it undoes its own commit, fast-forwards and
+regenerates on the new state, and retries up to three times. Publications in
+one index clone are serialized by a lock file in its Git directory. Any other
+rejected push undoes the local commit and reports the error; rollback touches
+only this publication's commit and generated files, and the command refuses an
+index clone with unrelated changes. `--via-branch` instead pushes
+`reuse/<name>-<revision>` for a pull request and leaves the local index on the
+default branch; the index changes only when that pull request is merged. A
+local-only index is published by local commit only.
+
+If `create` fails before its push succeeds (for example a missing Git identity
+or a rejected push), it removes the new index directory again, so the same
+command can simply be rerun.
+
+## Size budget and maintenance
+
+Every routing file (`llms.txt`, each `area-<id>.txt` and
+`catalog-revisions.json`) must fit in 16,384 bytes of UTF-8, below the measured
+Copilot CLI file view limit of about 20 KB. Generation checks every output
+before writing any; invalid input or an oversized file changes nothing.
+Units and areas are sorted and no timestamps are written, so unchanged input
+produces identical files. An area left without units is omitted and its file
+removed.
+
+When an area overflows or no area fits, the maintainer changes the taxonomy:
+edits `areas.json` and manifest default areas in the index clone, runs
+`generate <index>`, reviews and commits the diff and pushes it (through a pull
+request when the branch is protected). A unit's own `area` override is part of
+its repository's catalog and changes through `docs-update` there. Removing a
+repository from `manifest.json` drops its routes and published catalog on the
+next generation; its clones stay untouched. `generate` reads a sibling clone
+(with the manifest origin, on its manifest branch, from its committed `HEAD`)
+when present, and the published catalog otherwise.
+
+## Evidence
+
+On synthetic organizations, one always-loaded instruction pointing to the index
+led fresh agents to the right library 9/9 times (1/9 without it); on local
+clones side by side, with a request that did not mention reuse, 3/3 with the
+pointer and 0/3 without. A skill whose description names the tasks activated
+9/9 times but was ignored twice, so the always-loaded instruction stays the
+primary route. These runs used pointers to pre-cloned repositories; on-demand
+cloning through `ensure` has local fixture tests but no agent evaluation yet.
+
+For local tests, redirect the home directory with `USERPROFILE` (Windows) or
+`HOME` (Unix), set `COPILOT_HOME` to `<test-home>/.copilot`, and check
+`copilot instruction list --json` for the generated file with
+`location: "user"`.

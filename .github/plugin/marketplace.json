@@ -1,28 +1,20 @@
 {
-  "name": "repository-docs-marketplace",
+  "name": "repository-docs",
   "owner": {
-    "name": "Repository Docs maintainers"
+    "name": "michalmar"
   },
   "metadata": {
-    "description": "Evidence-based repository documentation plugins.",
-    "version": "0.6.0"
+    "description": "Marketplace for the repository-docs GitHub Copilot plugin."
   },
   "plugins": [
     {
       "name": "repository-docs",
-      "description": "Source-traced discovery, documentation bootstrap and updates, cross-project reuse documentation, guided local reuse setup and an organization reuse index, resumable recovery, and independent advisory review.",
-      "version": "0.6.0",
-      "source": ".",
+      "source": "./",
+      "description": "Three skills for reuse documentation across an organization: docs-index sets up the organization reuse index, docs-create documents a repository's reusable libraries and integrations and publishes them, docs-update keeps that documentation and the index current.",
+      "version": "1.0.1",
       "repository": "https://github.com/michalmar/repository-docs",
       "license": "MIT",
-      "keywords": [
-        "documentation",
-        "discovery",
-        "contracts",
-        "reuse",
-        "recovery",
-        "review"
-      ]
+      "keywords": ["documentation", "reuse", "index", "libraries", "integrations"]
     }
   ]
 }

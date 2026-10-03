@@ -8,8 +8,8 @@ is licensed under the MIT License in [LICENSE](LICENSE).
 ## cloudflare/security-audit-skill
 
 Source pin: `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8`. Retained conservatively
-for discovery/coverage concepts; the packet schema, checker and local procedures
-are original, not bundled upstream code.
+for discovery/coverage concepts (survey breadth before depth, independent
+coverage challenge); the procedures are original, not bundled upstream code.
 
 ```text
 MIT License
